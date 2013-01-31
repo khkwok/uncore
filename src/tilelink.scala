@@ -36,8 +36,8 @@ class Acquire extends PhysicalAddress {
   val a_type = Bits(width = ACQUIRE_TYPE_MAX_BITS)
   val client_xact_id = Bits(width = CLIENT_XACT_ID_BITS)
   val write_mask = Bits(width = ACQUIRE_WRITE_MASK_BITS)
-  val subword_addr = Bits(width = ACQUIRE_SUBWORD_ADDR_BITS)
-  val atomic_opcode = Bits(width = ACQUIRE_ATOMIC_OP_BITS)
+  //val subword_addr = Bits(width = ACQUIRE_SUBWORD_ADDR_BITS)
+  //val atomic_opcode = Bits(width = ACQUIRE_ATOMIC_OP_BITS)
 }
 
 object Acquire 
@@ -62,8 +62,8 @@ object Acquire
     acq.a_type := a_type
     acq.addr := addr
     acq.client_xact_id := client_xact_id
-    acq.subword_addr := subword_addr
-    acq.atomic_opcode := atomic_opcode
+    //acq.subword_addr := subword_addr
+    //acq.atomic_opcode := atomic_opcode
     acq
   }
 }

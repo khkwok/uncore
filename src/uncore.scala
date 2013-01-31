@@ -225,6 +225,7 @@ class XactTrackerBroadcast(id: Int)(implicit conf: CoherenceHubConfiguration) ex
 
 case class CoherenceHubConfiguration(co: CoherencePolicy, ln: LogicalNetworkConfiguration)
 
+/*
 class CoherenceHubAdapter(implicit conf: LogicalNetworkConfiguration) extends Component with MasterCoherenceAgent {
   val io = new Bundle {
     val net = (new TileLinkIO).flip
@@ -261,7 +262,7 @@ class CoherenceHubAdapter(implicit conf: LogicalNetworkConfiguration) extends Co
     net.ready := hub.map(_.ready).fold(Bool(false))(_||_)
   }}
 }
-
+*/
 abstract class CoherenceHub(implicit conf: LogicalNetworkConfiguration) extends Component with MasterCoherenceAgent {
   val io = new Bundle {
     val tiles = Vec(conf.nTiles) { new TileLinkIO }.flip
@@ -369,8 +370,8 @@ class CoherenceHubBroadcast(implicit conf: CoherenceHubConfiguration) extends Co
     rep.bits.payload.master_xact_id := UFix(0)
     rep.bits.payload.data := io.mem.resp.bits.data
     rep.bits.payload.require_ack := Bool(true)
-    rep.bits.header.dst := UFix(0) // DNC
-    rep.bits.header.src := UFix(0) // DNC
+    //rep.bits.header.dst := UFix(0) // DNC
+    //rep.bits.header.src := UFix(0) // DNC
     rep.valid := Bool(false)
     when(io.mem.resp.valid && (UFix(j) === init_client_id_arr(mem_idx))) {
       rep.bits.payload.g_type := co.getGrantType(a_type_arr(mem_idx), sh_count_arr(mem_idx))
@@ -447,8 +448,8 @@ class CoherenceHubBroadcast(implicit conf: CoherenceHubConfiguration) extends Co
       conflicts(i) := t.busy && x_init.valid && co.isCoherenceConflict(t.addr, x_init.bits.payload.addr)
     }
     x_abort.bits.payload.client_xact_id := x_init.bits.payload.client_xact_id
-    x_abort.bits.header.dst := UFix(0) // DNC
-    x_abort.bits.header.src := UFix(0) // DNC
+    //x_abort.bits.header.dst := UFix(0) // DNC
+    //x_abort.bits.header.src := UFix(0) // DNC
     want_to_abort_arr(j) := x_init.valid && (conflicts.toBits.orR || busy_arr.toBits.andR || (!x_init_data_dep_list(j).io.enq.ready && co.messageHasData(x_init.bits.payload)))
     
     x_abort.valid := Bool(false)
@@ -529,6 +530,7 @@ class CoherenceHubBroadcast(implicit conf: CoherenceHubConfiguration) extends Co
 
 }
 
+/*
 abstract class CoherenceAgent(implicit conf: LogicalNetworkConfiguration) extends Component with MasterCoherenceAgent {
   val io = new Bundle {
     val network = (new TileLinkIO).flip
@@ -875,3 +877,4 @@ class XactTracker(id: Int)(implicit conf: CoherenceHubConfiguration) extends Com
     }
   }
 }
+*/

@@ -14,7 +14,7 @@ class PhysicalHeader(implicit conf: PhysicalNetworkConfiguration) extends Bundle
 }
 
 abstract class PhysicalNetworkIO[T <: Data]()(data: => T)(implicit conf: PhysicalNetworkConfiguration) extends Bundle {
-  val header = (new PhysicalHeader)
+  //val header = (new PhysicalHeader) // DNC
   val payload = data
 }
 
@@ -24,6 +24,7 @@ class BasicCrossbarIO[T <: Data]()(data: => T)(implicit conf: PhysicalNetworkCon
 
 abstract class PhysicalNetwork(conf: PhysicalNetworkConfiguration) extends Component
 
+/*
 class BasicCrossbar[T <: Data]()(data: => T)(implicit conf: PhysicalNetworkConfiguration) extends PhysicalNetwork(conf) {
   val io = new Bundle {
     val in  = Vec(conf.nEndpoints){(new FIFOIO){(new BasicCrossbarIO){data}}}.flip 
@@ -47,6 +48,7 @@ class BasicCrossbar[T <: Data]()(data: => T)(implicit conf: PhysicalNetworkConfi
     io.in(i).ready := rdyVecs.map(r => r(i)).reduceLeft(_||_)
   }
 }
+*/
 
 case class LogicalNetworkConfiguration(nEndpoints: Int, idBits: Int, nHubs: Int, nTiles: Int)
 
@@ -77,8 +79,8 @@ class FIFOedLogicalNetworkIOWrapper[T <: Data](src: UFix, dst: UFix)(data: => T)
   }
   io.out.valid := io.in.valid
   io.out.bits.payload := io.in.bits
-  io.out.bits.header.dst := dst
-  io.out.bits.header.src := src
+  //io.out.bits.header.dst := dst // DNC
+  //io.out.bits.header.src := src // DNC
   io.in.ready := io.out.ready
 }
 
@@ -102,24 +104,9 @@ class FIFOedLogicalNetworkIOUnwrapper[T <: Data]()(data: => T)(implicit lconf: L
 }
 
 class LogicalNetworkIO[T <: Data]()(data: => T)(implicit conf: LogicalNetworkConfiguration) extends Bundle {
-  val header = new LogicalHeader
+  //val header = new LogicalHeader // DNC
   val payload = data
   override def clone = { new LogicalNetworkIO()(data).asInstanceOf[this.type] }
 }
 
-abstract class DirectionalFIFOIO[T <: Data]()(data: => T) extends FIFOIO()(data)
-class ClientSourcedIO[T <: Data]()(data: => T)  extends DirectionalFIFOIO()(data) 
-class MasterSourcedIO[T <: Data]()(data: => T) extends DirectionalFIFOIO()(data) {flip()}
-
-class TileLinkIO(implicit conf: LogicalNetworkConfiguration) extends Bundle { 
-  val acquire      = (new ClientSourcedIO){(new LogicalNetworkIO){new Acquire }}
-  val acquire_data = (new ClientSourcedIO){(new LogicalNetworkIO){new AcquireData }}
-  val abort     = (new MasterSourcedIO){(new LogicalNetworkIO){new Abort }}
-  val probe      = (new MasterSourcedIO){(new LogicalNetworkIO){new Probe }}
-  val release      = (new ClientSourcedIO){(new LogicalNetworkIO){new Release }}
-  val release_data = (new ClientSourcedIO){(new LogicalNetworkIO){new ReleaseData }}
-  val grant       = (new MasterSourcedIO){(new LogicalNetworkIO){new Grant }}
-  val grant_ack    = (new ClientSourcedIO){(new LogicalNetworkIO){new GrantAck }}
-  override def clone = { new TileLinkIO().asInstanceOf[this.type] }
-}
 }
