@@ -91,7 +91,7 @@ class HTIF(w: Int, pcr_RESET: Int, nSCR: Int)(implicit conf: TileLinkConfigurati
 
   val cmd_readmem :: cmd_writemem :: cmd_readcr :: cmd_writecr :: cmd_ack :: cmd_nack :: Nil = Enum(UInt(), 6)
 
-  val pcr_addr = addr(io.cpu(0).pcr_req.bits.addr.width-1, 0)
+  val pcr_addr = addr(io.cpu(0).pcr_req.bits.addr.getWidth-1, 0)
   val pcr_coreid = addr(log2Up(nTiles)-1+20+1,20)
   val pcr_wdata = packet_ram(0)
 

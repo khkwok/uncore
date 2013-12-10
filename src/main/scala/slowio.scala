@@ -1,7 +1,7 @@
 package uncore
 import Chisel._
 
-class SlowIO[T <: Data](val divisor_max: Int)(data: => T) extends Module
+class SlowIO[T <: Data : Manifest](val divisor_max: Int)(data: => T) extends Module
 {
   val io = new Bundle {
     val out_fast = Decoupled(data).flip

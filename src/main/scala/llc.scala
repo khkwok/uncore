@@ -1,25 +1,24 @@
 package uncore
 import Chisel._
 
-class BigMem[T <: Data](n: Int, preLatency: Int, postLatency: Int, leaf: Mem[UInt])(gen: => T) extends Module
+class BigMem[T <: Data](n: Int, w: Int, preLatency: Int, postLatency: Int, leaf: Mem[UInt]) extends Module
 {
   class Inputs extends Bundle {
     val addr = UInt(INPUT, log2Up(n))
     val rw = Bool(INPUT)
-    val wdata = gen.asInput
-    val wmask = gen.asInput
+    val wdata = Bits(INPUT, w)
+    val wmask = Bits(INPUT, w)
     override def clone = new Inputs().asInstanceOf[this.type]
   }
   val io = new Bundle {
     val in = Valid(new Inputs).flip
-    val rdata = gen.asOutput
+    val rdata = Bits(OUTPUT, w)
   }
-  val data = gen
-  val colMux = if (2*data.width <= leaf.data.width && n > leaf.n) 1 << math.floor(math.log(leaf.data.width/data.width)/math.log(2)).toInt else 1
-  val nWide = if (data.width > leaf.data.width) 1+(data.width-1)/leaf.data.width else 1
-  val nDeep = if (n > colMux*leaf.n) 1+(n-1)/(colMux*leaf.n) else 1
+  val colMux = if (2*w <= leaf.data.getWidth && n > leaf.depth) 1 << math.floor(math.log(leaf.data.getWidth/w)/math.log(2)).toInt else 1
+  val nWide = if (w > leaf.data.getWidth) 1+(w-1)/leaf.data.getWidth else 1
+  val nDeep = if (n > colMux*leaf.depth) 1+(n-1)/(colMux*leaf.depth) else 1
   if (nDeep > 1 || colMux > 1)
-    require(isPow2(n) && isPow2(leaf.n))
+    require(isPow2(n) && isPow2(leaf.depth))
 
   val rdataDeep = Vec.fill(nDeep){Bits()}
   val rdataSel = Vec.fill(nDeep){Bool()}
@@ -39,10 +38,10 @@ class BigMem[T <: Data](n: Int, preLatency: Int, postLatency: Int, leaf: Mem[UIn
       var dout: Bits = null
       val ridx = if (postLatency > 0) Reg(Bits()) else null
 
-      var wmask0 = Fill(colMux, wmask(math.min(wmask.getWidth, leaf.data.width*(j+1))-1, leaf.data.width*j))
+      var wmask0 = Fill(colMux, wmask(math.min(wmask.getWidth, leaf.data.getWidth*(j+1))-1, leaf.data.getWidth*j))
       if (colMux > 1)
-        wmask0 = wmask0 & FillInterleaved(gen.width, UIntToOH(in.bits.addr(log2Up(n/nDeep)-1, log2Up(n/nDeep/colMux)), log2Up(colMux)))
-      val wdata0 = Fill(colMux, wdata(math.min(wdata.getWidth, leaf.data.width*(j+1))-1, leaf.data.width*j))
+        wmask0 = wmask0 & FillInterleaved(w, UIntToOH(in.bits.addr(log2Up(n/nDeep)-1, log2Up(n/nDeep/colMux)), log2Up(colMux)))
+      val wdata0 = Fill(colMux, wdata(math.min(wdata.getWidth, leaf.data.getWidth*(j+1))-1, leaf.data.getWidth*j))
       when (in.valid) {
         when (in.bits.rw) { mem.write(idx, wdata0, wmask0) }
         .otherwise { if (postLatency > 0) ridx := idx }
@@ -61,7 +60,7 @@ class BigMem[T <: Data](n: Int, preLatency: Int, postLatency: Int, leaf: Mem[UIn
 
     var colMuxOut = rdataWide
     if (colMux > 1) {
-      val colMuxIn = Vec((0 until colMux).map(k => rdataWide(gen.width*(k+1)-1, gen.width*k)))
+      val colMuxIn = Vec((0 until colMux).map(k => rdataWide(w*(k+1)-1, w*k)))
       colMuxOut = colMuxIn(r.bits(log2Up(n/nDeep)-1, log2Up(n/nDeep/colMux)))
     }
 
@@ -245,7 +244,7 @@ class LLCData(latency: Int, sets: Int, ways: Int, leaf: Mem[UInt]) extends Modul
     val mem_resp_way = UInt(INPUT, log2Up(ways))
   }
 
-  val data = Module(new BigMem(sets*ways*REFILL_CYCLES, 1, latency-1, leaf)(Bits(width = MEM_DATA_BITS)))
+  val data = Module(new BigMem(sets*ways*REFILL_CYCLES, MEM_DATA_BITS, 1, latency-1, leaf))
   class QEntry extends MemResp {
     val isWriteback = Bool()
     override def clone = new QEntry().asInstanceOf[this.type]
@@ -268,7 +267,7 @@ class LLCData(latency: Int, sets: Int, ways: Int, leaf: Mem[UInt]) extends Modul
   data.io.in.bits.addr := Cat(io.req.bits.way, io.req.bits.addr(log2Up(sets)-1, 0), count).toUInt
   data.io.in.bits.rw := io.req.bits.rw
   data.io.in.bits.wdata := io.req_data.bits.data
-  data.io.in.bits.wmask := SInt(-1, io.req_data.bits.data.width)
+  data.io.in.bits.wmask := SInt(-1, io.req_data.bits.data.getWidth)
   when (valid) {
     data.io.in.valid := Mux(req.rw, io.req_data.valid, qReady)
     data.io.in.bits.addr := Cat(req.way, req.addr(log2Up(sets)-1, 0), count).toUInt
@@ -356,7 +355,7 @@ class DRAMSideLLC(sets: Int, ways: Int, outstanding: Int, tagLeaf: Mem[UInt], da
   val memCmdArb = Module(new Arbiter(new MemReqCmd, 2))
   val dataArb = Module(new Arbiter(new LLCDataReq(ways), 2))
   val mshr = Module(new LLCMSHRFile(sets, ways, outstanding))
-  val tags = Module(new BigMem(sets, 0, 1, tagLeaf)(Bits(width = metaWidth*ways)))
+  val tags = Module(new BigMem(sets, metaWidth*ways, 0, 1, tagLeaf))
   val data = Module(new LLCData(4, sets, ways, dataLeaf))
   val writeback = Module(new LLCWriteback(2))
 
@@ -383,7 +382,7 @@ class DRAMSideLLC(sets: Int, ways: Int, outstanding: Int, tagLeaf: Mem[UInt], da
     for (i <- 0 until ways)
       s2_tags(i) := tags.io.rdata(metaWidth*(i+1)-1, metaWidth*i)
   }
-  val s2_hits = s2_tags.map(t => t(tagWidth) && s2.addr(s2.addr.width-1, s2.addr.width-tagWidth) === t(tagWidth-1, 0))
+  val s2_hits = s2_tags.map(t => t(tagWidth) && s2.addr(s2.addr.getWidth-1, s2.addr.getWidth-tagWidth) === t(tagWidth-1, 0))
   val s2_hit_way = OHToUInt(s2_hits)
   val s2_hit = s2_hits.reduceLeft(_||_)
   val s2_hit_dirty = s2_tags(s2_hit_way)(tagWidth+1)
@@ -393,7 +392,7 @@ class DRAMSideLLC(sets: Int, ways: Int, outstanding: Int, tagLeaf: Mem[UInt], da
 
   val tag_we = initialize || setDirty || mshr.io.tag.fire()
   val tag_waddr = Mux(initialize, initCount, Mux(setDirty, s2.addr, mshr.io.tag.bits.addr))
-  val tag_wdata = Cat(setDirty, !initialize, Mux(setDirty, s2.addr, mshr.io.tag.bits.addr)(mshr.io.tag.bits.addr.width-1, mshr.io.tag.bits.addr.width-tagWidth))
+  val tag_wdata = Cat(setDirty, !initialize, Mux(setDirty, s2.addr, mshr.io.tag.bits.addr)(mshr.io.tag.bits.addr.getWidth-1, mshr.io.tag.bits.addr.getWidth-tagWidth))
   val tag_wmask = Mux(initialize, SInt(-1, ways), UIntToOH(Mux(setDirty, s2_hit_way, mshr.io.tag.bits.way)))
   tags.io.in.valid := io.cpu.req_cmd.fire() || replay_s2 && replay_s2_rdy || tag_we
   tags.io.in.bits.addr := Mux(tag_we, tag_waddr, Mux(replay_s2, s2.addr, io.cpu.req_cmd.bits.addr)(log2Up(sets)-1,0))
@@ -442,7 +441,7 @@ class DRAMSideLLC(sets: Int, ways: Int, outstanding: Int, tagLeaf: Mem[UInt], da
   io.mem.req_data <> writeback.io.mem.req_data
 }
 
-class HellaFlowQueue[T <: Data](val entries: Int)(data: => T) extends Module
+class HellaFlowQueue[T <: Data : Manifest](val entries: Int)(data: => T) extends Module
 {
   val io = new QueueIO(data, entries)
   require(isPow2(entries) && entries > 1)
@@ -477,7 +476,7 @@ class HellaFlowQueue[T <: Data](val entries: Int)(data: => T) extends Module
   io.deq.bits := Mux(empty, io.enq.bits, ram(ram_addr))
 }
 
-class HellaQueue[T <: Data](val entries: Int)(data: => T) extends Module
+class HellaQueue[T <: Data : Manifest](val entries: Int)(data: => T) extends Module
 {
   val io = new QueueIO(data, entries)
 
@@ -488,7 +487,7 @@ class HellaQueue[T <: Data](val entries: Int)(data: => T) extends Module
 
 object HellaQueue
 {
-  def apply[T <: Data](enq: DecoupledIO[T], entries: Int) = {
+  def apply[T <: Data : Manifest](enq: DecoupledIO[T], entries: Int) = {
     val q = Module((new HellaQueue(entries)) { enq.bits.clone })
     q.io.enq.valid := enq.valid // not using <> so that override is allowed
     q.io.enq.bits := enq.bits
