@@ -260,7 +260,7 @@ class MemIOUncachedTileLinkIOConverter(qDepth: Int)(implicit tlconf: TileLinkCon
   // Aggregate incoming MemIO responses into TL Grants
   io.mem.resp.ready := !active_in || cnt_in < UInt(cnt_max)
   io.uncached.grant.valid := active_in && (cnt_in === UInt(cnt_max))
-  io.uncached.grant.bits.payload := Grant(UInt(0), tag_in, UInt(0), buf_in)
+  io.uncached.grant.bits.payload := Grant(UInt(0), tag_in(tlconf.clientXactIdBits-1, 0), UInt(0), buf_in)
   when(!active_in && io.mem.resp.valid) {
     active_in := Bool(true)
     cnt_in := UInt(1)

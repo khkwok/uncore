@@ -158,7 +158,7 @@ class AcquireTracker(trackerId: Int, bankId: Int)(implicit conf: L2CoherenceAgen
   val pending_outer_write = co.messageHasData(xact)
   val pending_outer_read = co.needsOuterRead(xact.a_type, UInt(0))
   val outer_write_acq = Acquire(co.getUncachedWriteAcquireType, 
-                                       xact.addr, UInt(trackerId), xact.data)
+                                       xact.addr, Cat(init_client_id, UInt(trackerId)), xact.data)
   val outer_write_rel = Acquire(co.getUncachedWriteAcquireType, 
                                        xact.addr, UInt(trackerId), c_rel.payload.data)
   val outer_read = Acquire(co.getUncachedReadAcquireType, xact.addr, UInt(trackerId))
