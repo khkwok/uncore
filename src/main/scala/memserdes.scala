@@ -26,7 +26,12 @@ trait HasMemTag extends MemoryIFSubBundle {
   val tag = UInt(width = conf.tagBits)
 }
 
-class MemReqCmd(implicit val conf: MemoryIFConfiguration) extends HasMemAddr with HasMemTag {
+//TODO use NTILES to determine this
+trait HasMemCoreId extends MemoryIFSubBundle {
+  val core_id = UInt(width = 1)
+}
+
+class MemReqCmd(implicit val conf: MemoryIFConfiguration) extends HasMemAddr with HasMemTag with HasMemCoreId {
   val rw = Bool()
 }
 
@@ -217,6 +222,7 @@ class MemIOUncachedTileLinkIOConverter(qDepth: Int)(implicit tlconf: TileLinkCon
   val buf_out = Reg(Bits())
   val tag_out = Reg(Bits())
   val addr_out = Reg(Bits())
+  val core_id_out = Reg(Bits())
   val has_data = Reg(init=Bool(false))
 
   val cnt_in = Reg(UInt(width = log2Up(cnt_max+1)))
@@ -232,6 +238,7 @@ class MemIOUncachedTileLinkIOConverter(qDepth: Int)(implicit tlconf: TileLinkCon
     buf_out := io.uncached.acquire.bits.payload.data
     tag_out := io.uncached.acquire.bits.payload.client_xact_id
     addr_out := io.uncached.acquire.bits.payload.addr
+    core_id_out := io.uncached.acquire.bits.payload.core_id
     has_data := tlconf.co.needsOuterWrite(io.uncached.acquire.bits.payload.a_type, UInt(0))
   }
   when(active_out) {
@@ -252,6 +259,7 @@ class MemIOUncachedTileLinkIOConverter(qDepth: Int)(implicit tlconf: TileLinkCon
   mem_cmd_q.io.enq.bits.rw := has_data
   mem_cmd_q.io.enq.bits.tag := tag_out
   mem_cmd_q.io.enq.bits.addr := addr_out
+  mem_cmd_q.io.enq.bits.core_id := core_id_out
   mem_data_q.io.enq.valid := active_out && has_data && cnt_out < UInt(cnt_max)
   mem_data_q.io.enq.bits.data := buf_out
   io.mem.req_cmd <> mem_cmd_q.io.deq
@@ -260,7 +268,7 @@ class MemIOUncachedTileLinkIOConverter(qDepth: Int)(implicit tlconf: TileLinkCon
   // Aggregate incoming MemIO responses into TL Grants
   io.mem.resp.ready := !active_in || cnt_in < UInt(cnt_max)
   io.uncached.grant.valid := active_in && (cnt_in === UInt(cnt_max))
-  io.uncached.grant.bits.payload := Grant(UInt(0), Cat(UInt(0, width = 1), tag_in(tlconf.clientXactIdBits-2, 0)), UInt(0), buf_in)
+  io.uncached.grant.bits.payload := Grant(UInt(0), tag_in, UInt(0), buf_in)
   when(!active_in && io.mem.resp.valid) {
     active_in := Bool(true)
     cnt_in := UInt(1)

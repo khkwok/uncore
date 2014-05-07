@@ -103,6 +103,8 @@ class LLCMSHRFile(sets: Int, ways: Int, outstanding: Int, refill_cycles: Int)(im
     val addr = UInt(width = conf.addrBits)
     val way = UInt(width = log2Up(ways))
     val tag = io.cpu.bits.tag.clone
+    //TODO control with NTILES
+    val core_id = Bits(width = 1)
     val refilled = Bool()
     val refillCount = UInt(width = log2Up(refill_cycles))
     val requested = Bool()
@@ -121,6 +123,7 @@ class LLCMSHRFile(sets: Int, ways: Int, outstanding: Int, refill_cycles: Int)(im
     valid(freeId) := Bool(true)
     mshr(freeId).addr := io.cpu.bits.addr
     mshr(freeId).tag := io.cpu.bits.tag
+    mshr(freeId).core_id := io.cpu.bits.core_id
     mshr(freeId).way := io.repl_way
     mshr(freeId).old_dirty := io.repl_dirty
     mshr(freeId).old_tag := io.repl_tag
@@ -179,6 +182,7 @@ class LLCMSHRFile(sets: Int, ways: Int, outstanding: Int, refill_cycles: Int)(im
   io.mem.req_cmd.bits.rw := Bool(false)
   io.mem.req_cmd.bits.addr := mshr(requestId).addr
   io.mem.req_cmd.bits.tag := requestId
+  io.mem.req_cmd.bits.core_id := mshr(requestId).core_id
   io.mem_resp_set := mshr(refillId).addr
   io.mem_resp_way := mshr(refillId).way
 }

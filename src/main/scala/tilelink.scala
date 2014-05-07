@@ -24,6 +24,11 @@ trait HasTileLinkData extends TileLinkSubBundle {
   val data = Bits(width = conf.dataBits)
 }
 
+//TODO pass NTILES here
+trait HasCoreId extends TileLinkSubBundle {
+  val core_id = Bits(width = 1)
+}
+
 trait SourcedMessage extends Bundle
 trait ClientSourcedMessage extends SourcedMessage
 trait MasterSourcedMessage extends SourcedMessage
@@ -39,6 +44,7 @@ object Acquire
     acq.write_mask := Bits(0)
     acq.subword_addr := Bits(0)
     acq.atomic_opcode := Bits(0)
+    acq.core_id := Bits(0)
     acq
   }
   def apply(a_type: Bits, addr: UInt, client_xact_id: UInt, data: UInt)(implicit conf: TileLinkConfiguration): Acquire =  {
@@ -49,6 +55,11 @@ object Acquire
   def apply(a_type: UInt, addr: UInt, client_xact_id: UInt, write_mask: Bits, data: UInt)(implicit conf: TileLinkConfiguration): Acquire = {
     val acq = apply(a_type, addr, client_xact_id, data)
     acq.write_mask := write_mask
+    acq
+  }
+  def apply(a_type: UInt, addr: UInt, client_xact_id: UInt, write_mask: Bits, data: UInt, core_id: Bits)(implicit conf: TileLinkConfiguration): Acquire = {
+    val acq = apply(a_type, addr, client_xact_id, write_mask, data)
+    acq.core_id := core_id
     acq
   }
   def apply(a_type: UInt, addr: UInt, client_xact_id: UInt, subword_addr: UInt, atomic_opcode: UInt, data: UInt)(implicit conf: TileLinkConfiguration): Acquire = {
@@ -67,7 +78,8 @@ object Acquire
 class Acquire(implicit val conf: TileLinkConfiguration) extends ClientSourcedMessage 
     with HasPhysicalAddress 
     with HasClientTransactionId 
-    with HasTileLinkData {
+    with HasTileLinkData 
+    with HasCoreId {
   val a_type = UInt(width = conf.co.acquireTypeWidth)
   val write_mask = Bits(width = conf.writeMaskBits)
   val subword_addr = Bits(width = conf.wordAddrBits)
